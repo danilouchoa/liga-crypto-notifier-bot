@@ -118,7 +118,7 @@ jobs:
 
   snyk:
     runs-on: ubuntu-latest
-    needs: semgrep
+    needs: [semgrep, audit]
     if: ${{ success() }}
     steps:
       - uses: actions/checkout@v3
@@ -260,16 +260,32 @@ jobs:
             --environment-names "${ENV_NAME}" \
             --query "Environments[0].CNAME" \
             --output text)
-          echo "zap_target=https://$URL" >> $GITHUB_OUTPUT
+
+          if [ "$URL" == "None" ]; then
+            echo "Falha ao obter URL do ambiente Beanstalk"
+            exit 1
+          fi
+
+          FULL_URL="https://$URL"
+          echo "zap_target=$FULL_URL" >> $GITHUB_ENV
+          echo "zap_target=$FULL_URL" >> $GITHUB_OUTPUT
 
   zap:
     runs-on: ubuntu-latest
     needs: [deploy]
     if: ${{ success() }}
     steps:
-      - name: Definir URL do ZAP target
+      - name: Validar zap_target
         run: |
+          if [ -z "${{ needs.deploy.outputs.zap_target }}" ]; then
+            echo "zap_target não definido. Abortando."
+            exit 1
+          fi
           echo "ZAP_TARGET=${{ needs.deploy.outputs.zap_target }}" >> $GITHUB_ENV
+
+      - name: Mostrar URL do ZAP
+        run: |
+          echo "Escaneando: $ZAP_TARGET"
 
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
@@ -277,15 +293,21 @@ jobs:
           target: ${{ env.ZAP_TARGET }}
           fail_action: false
 
-      - name: Deletar environment anterior (se diferente do atual)
+      - name: Deletar todos os environments antigos (exceto atual)
         run: |
           CURRENT_ENV="${{ needs.deploy.outputs.current_env }}"
-          PREVIOUS_ENV="${{ needs.deploy.outputs.previous_env }}"
-          echo "Atual: $CURRENT_ENV | Anterior: $PREVIOUS_ENV"
-          if [ "$PREVIOUS_ENV" != "" ] && [ "$PREVIOUS_ENV" != "$CURRENT_ENV" ]; then
-            aws elasticbeanstalk terminate-environment \
-              --environment-name "$PREVIOUS_ENV" \
-              --terminate-resources
-          else
-            echo "Nenhum environment anterior para deletar ou é o mesmo do atual."
-          fi
+          echo "Environment atual: $CURRENT_ENV"
+
+          ENVIRONMENTS=$(aws elasticbeanstalk describe-environments \
+            --application-name "${{ env.APP_NAME }}" \
+            --query "Environments[?Status=='Ready'].EnvironmentName" \
+            --output text)
+
+          for ENV in $ENVIRONMENTS; do
+            if [ "$ENV" != "$CURRENT_ENV" ]; then
+              echo "Deletando environment antigo: $ENV"
+              aws elasticbeanstalk terminate-environment \
+                --environment-name "$ENV" \
+                --terminate-resources
+            fi
+          done
