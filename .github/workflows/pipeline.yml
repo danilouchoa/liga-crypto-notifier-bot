@@ -10,6 +10,7 @@ concurrency:
 
 jobs:
   setup:
+    name: Setup do Projeto
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -27,6 +28,7 @@ jobs:
         uses: ./.github/actions/setup-node
 
   quality-check:
+    name: Code Quality & Testes
     runs-on: ubuntu-latest
     needs: setup
     permissions:
@@ -56,6 +58,7 @@ jobs:
         run: npm audit --audit-level=moderate
 
   sast-sca:
+    name: SAST & SCA (Semgrep + Snyk)
     runs-on: ubuntu-latest
     needs: [quality-check]
     if: github.actor != 'dependabot[bot]'
@@ -68,8 +71,11 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v3
 
-      - name: Instalar dependências com cache (setup-node)
+      - name: Instalar dependências com cache
         uses: ./.github/actions/setup-node
+
+      - name: Instalar Snyk CLI com cache
+        uses: ./.github/actions/setup-snyk
 
       - name: Análise estática com Semgrep
         uses: ./.github/actions/setup-semgrep
@@ -81,8 +87,9 @@ jobs:
         run: snyk code test
 
   deploy:
+    name: Deploy para AWS Elastic Beanstalk
     runs-on: ubuntu-latest
-    needs: [sast-sca, quality-check]
+    needs: [sast-sca]
     if: ${{ success() }}
     permissions:
       contents: read
@@ -136,7 +143,7 @@ jobs:
         run: npm ci --omit=dev
 
       - name: Zipar aplicação
-        run: zip -r app.zip . -x '*.git*' 'node_modules/*' '*.zip'
+        run: zip -r app.zip . -x '*.git*' 'node_modules/*' '*.zip' '.github/' '.vscode/' '*.md' '*.log' 'coverage/*' 'tmp/*'
 
       - name: Upload para S3
         run: aws s3 cp app.zip s3://$S3_BUCKET_NAME/automacao-${{ env.VERSION_LABEL }}.zip
@@ -176,14 +183,15 @@ jobs:
 
       - name: Aguardar novo ambiente ficar pronto
         run: |
-          for i in {1..20}; do
+          for i in {1..30}; do
             STATUS=$(aws elasticbeanstalk describe-environments \
               --application-name "${APP_NAME}" \
               --environment-names "${ENV_NAME}" \
               --query "Environments[0].Status" \
               --output text 2>/dev/null)
+
             echo "Status atual: $STATUS"
-            [ "$STATUS" == "Ready" ] && break
+            [[ "$STATUS" == "Ready" || "$STATUS" == "Terminated" ]] && break
             sleep 30
           done
 
@@ -222,6 +230,7 @@ jobs:
           echo "zap_target=$FULL_URL"
 
   zap:
+    name: ZAP Baseline Scan
     runs-on: ubuntu-latest
     needs: [deploy]
     if: ${{ success() }}
