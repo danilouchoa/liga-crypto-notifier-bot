@@ -200,35 +200,60 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Resgatar environment e URL do último deploy via S3
+      - name: Resgatar environment e URL do último deploy
+        id: env-info
         run: |
           aws s3 cp s3://automacao-liga-crypto/last-env-name.txt .
           ENV_NAME=$(cat last-env-name.txt)
-          echo "CURRENT_ENV=$ENV_NAME" >> $GITHUB_ENV
+          echo "ENV_NAME=$ENV_NAME" >> $GITHUB_ENV
+          echo "env_name=$ENV_NAME" >> $GITHUB_OUTPUT
 
           URL=$(aws elasticbeanstalk describe-environments \
             --application-name "automacao-liga-telegram-bot" \
             --environment-names "$ENV_NAME" \
-            --query "Environments[0].CNAME" \
-            --output text)
+            --query "Environments[0].CNAME" --output text)
 
           if [ "$URL" == "None" ] || [ -z "$URL" ]; then
             echo "Erro ao obter a URL do Beanstalk"
             exit 1
           fi
 
-          echo "ZAP_TARGET=https://$URL" >> $GITHUB_ENV
-          echo "Usando target: https://$URL"
+          echo "ZAP_TARGET=http://$URL" >> $GITHUB_ENV
+          echo "zap_target=http://$URL" >> $GITHUB_OUTPUT
+          echo "URL final: http://$URL"
 
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
         with:
-          target: ${{ env.ZAP_TARGET }}
+          target: ${{ steps.env-info.outputs.zap_target }}
           fail_action: false
+
+  delete-old-envs:
+    name: Deletar Environments Antigos
+    runs-on: ubuntu-latest
+    needs: [zap]
+    if: ${{ success() }}
+    permissions:
+      contents: read
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+    steps:
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resgatar nome do último ambiente deployado
+        run: |
+          aws s3 cp s3://automacao-liga-crypto/last-env-name.txt .
+          CURRENT_ENV=$(cat last-env-name.txt)
+          echo "CURRENT_ENV=$CURRENT_ENV" >> $GITHUB_ENV
 
       - name: Deletar environments antigos (exceto o atual)
         run: |
-          echo "Environment atual: $CURRENT_ENV"
+          echo "Mantendo o environment atual: $CURRENT_ENV"
 
           ENVIRONMENTS=$(aws elasticbeanstalk describe-environments \
             --application-name "automacao-liga-telegram-bot" \
@@ -242,6 +267,6 @@ jobs:
                 --environment-name "$ENV" \
                 --terminate-resources
             else
-              echo "Mantendo environment atual: $ENV"
+              echo "Preservado: $ENV"
             fi
           done
