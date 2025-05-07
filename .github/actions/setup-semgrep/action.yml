@@ -1,0 +1,20 @@
+name: Setup Semgrep
+description: Instala e executa Semgrep com autenticação opcional
+runs:
+  using: 'composite'
+  steps:
+    - name: Instalar Python e pip
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pip
+      shell: bash
+
+    - name: Instalar Semgrep via pip
+      run: pip3 install semgrep
+      shell: bash
+
+    - name: Rodar análise com Semgrep
+      run: semgrep ci
+      shell: bash
+      env:
+        SEMGREP_APP_TOKEN: ${{ env.SEMGREP_APP_TOKEN }}

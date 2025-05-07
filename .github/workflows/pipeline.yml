@@ -47,35 +47,17 @@ jobs:
       - name: Testes com cobertura
         run: npm run test:coverage
 
-  coverage:
-    runs-on: ubuntu-latest
-    needs: quality-check
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v3
-      - uses: codecov/codecov-action@v5
+      - name: Upload cobertura para Codecov
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-
-  audit:
-    runs-on: ubuntu-latest
-    needs: quality-check
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout do código
-        uses: actions/checkout@v3
-
-      - name: Instalar dependências com cache (setup-node)
-        uses: ./.github/actions/setup-node
 
       - name: Auditoria de dependências (npm audit)
         run: npm audit --audit-level=moderate
 
   sast-sca:
     runs-on: ubuntu-latest
-    needs: [audit, quality-check]
+    needs: [quality-check]
     if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
@@ -90,9 +72,7 @@ jobs:
         uses: ./.github/actions/setup-node
 
       - name: Análise estática com Semgrep
-        uses: docker://returntocorp/semgrep
-        with:
-          args: ci
+        uses: ./.github/actions/setup-semgrep
 
       - name: Verificar dependências vulneráveis (Snyk SCA)
         run: snyk test
