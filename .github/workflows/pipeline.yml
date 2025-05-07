@@ -101,19 +101,13 @@ jobs:
       APP_NAME: automacao-liga-telegram-bot
       PLATFORM_ARN: arn:aws:elasticbeanstalk:us-east-1::platform/Node.js 20 running on 64bit Amazon Linux 2023/6.5.1
       VERSION_LABEL: ${{ github.sha }}-${{ github.run_number }}
-    outputs:
-      zap_target: ${{ steps.get-url.outputs.zap_target }}
-      previous_env: ${{ steps.load-previous-env.outputs.previous_env }}
-      current_env: ${{ steps.set-env-name.outputs.current_env }}
     steps:
       - uses: actions/checkout@v3
 
       - name: Definir nome do novo environment
-        id: set-env-name
         run: |
           ENV_NAME=automacao-liga-env-${GITHUB_SHA::6}
           echo "ENV_NAME=$ENV_NAME" >> $GITHUB_ENV
-          echo "current_env=$ENV_NAME" >> $GITHUB_OUTPUT
 
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v2
@@ -121,23 +115,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Carregar nome do último environment (via S3 ou fallback)
-        id: load-previous-env
-        run: |
-          if aws s3 ls s3://${S3_BUCKET_NAME}/last-env-name.txt; then
-            echo "Carregando último environment via S3..."
-            aws s3 cp s3://${S3_BUCKET_NAME}/last-env-name.txt .
-            PREVIOUS_ENV=$(cat last-env-name.txt)
-          else
-            echo "Nenhum arquivo no S3. Buscando environment ativo pelo Beanstalk..."
-            PREVIOUS_ENV=$(aws elasticbeanstalk describe-environments \
-              --application-name "${APP_NAME}" \
-              --query "Environments[?Status=='Ready'].EnvironmentName | [0]" \
-              --output text)
-          fi
-
-          echo "previous_env=$PREVIOUS_ENV" >> $GITHUB_OUTPUT
 
       - name: Instalar dependências (prod)
         run: npm ci --omit=dev
@@ -206,29 +183,6 @@ jobs:
           echo "$ENV_NAME" > last-env-name.txt
           aws s3 cp last-env-name.txt s3://${S3_BUCKET_NAME}/last-env-name.txt
 
-      - name: Obter URL do ambiente
-        id: get-url
-        run: |
-          URL=$(aws elasticbeanstalk describe-environments \
-            --application-name "${APP_NAME}" \
-            --environment-names "${ENV_NAME}" \
-            --query "Environments[0].CNAME" \
-            --output text)
-
-          if [ "$URL" == "None" ] || [ -z "$URL" ]; then
-            echo "Falha ao obter URL do ambiente Beanstalk"
-            exit 1
-          fi
-
-          FULL_URL="https://$URL"
-
-          # Exportar corretamente para outros jobs
-          echo "zap_target=$FULL_URL" >> "$GITHUB_OUTPUT"
-
-          # Logs opcionais para debug
-          echo "zap_target=$FULL_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "zap_target=$FULL_URL"
-
   zap:
     name: ZAP Baseline Scan
     runs-on: ubuntu-latest
@@ -237,31 +191,34 @@ jobs:
     permissions:
       contents: read
     env:
-      ZAP_TARGET: ${{ needs.deploy.outputs.zap_target }}
-      CURRENT_ENV: ${{ needs.deploy.outputs.current_env }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
     steps:
-      - name: Debug output do zap_target
-        run: |
-          echo "URL para o ZAP: $ZAP_TARGET"
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Validar zap_target
+      - name: Resgatar environment e URL do último deploy via S3
         run: |
-          TARGET="${{ needs.deploy.outputs.zap_target }}"
-          echo "ZAP_TARGET detectado: $TARGET"
-          if [ -z "$TARGET" ]; then
-            echo "zap_target não definido. Abortando."
+          aws s3 cp s3://automacao-liga-crypto/last-env-name.txt .
+          ENV_NAME=$(cat last-env-name.txt)
+          echo "CURRENT_ENV=$ENV_NAME" >> $GITHUB_ENV
+
+          URL=$(aws elasticbeanstalk describe-environments \
+            --application-name "automacao-liga-telegram-bot" \
+            --environment-names "$ENV_NAME" \
+            --query "Environments[0].CNAME" \
+            --output text)
+
+          if [ "$URL" == "None" ] || [ -z "$URL" ]; then
+            echo "Erro ao obter a URL do Beanstalk"
             exit 1
           fi
-          echo "ZAP_TARGET=$TARGET" >> $GITHUB_ENV
 
-      - name: Mostrar URL do ZAP
-        run: |
-          echo "Escaneando: $ZAP_TARGET"
-
-      - name: 'Debug: listar envs e outputs'
-        run: |
-          echo "Outputs do job deploy:"
-          env | sort
+          echo "ZAP_TARGET=https://$URL" >> $GITHUB_ENV
+          echo "Usando target: https://$URL"
 
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
