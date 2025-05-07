@@ -190,7 +190,9 @@ jobs:
     needs: [deploy]
     if: ${{ success() }}
     permissions:
-      contents: write
+      contents: read
+      issues: write
+
     steps:
       - name: Checkout do repositório
         uses: actions/checkout@v3
