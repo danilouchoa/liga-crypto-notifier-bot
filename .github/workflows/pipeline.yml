@@ -11,6 +11,8 @@ concurrency:
 jobs:
   setup:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       short_sha: ${{ steps.short_sha.outputs.value }}
     steps:
@@ -21,65 +23,35 @@ jobs:
         id: short_sha
         run: echo "value=${GITHUB_SHA::6}" >> $GITHUB_OUTPUT
 
-      - name: Cache dependências npm
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+      - name: Instalar dependências com cache (setup-node)
+        uses: ./.github/actions/setup-node
 
-      - name: Instalar dependências
-        run: npm install
-
-  lint:
+  quality-check:
     runs-on: ubuntu-latest
     needs: setup
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v3
-      - name: Restaurar cache npm
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-      - run: npm install
-      - run: npm run lint
+      - name: Checkout do código
+        uses: actions/checkout@v3
 
-  prettier:
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - uses: actions/checkout@v3
-      - name: Restaurar cache npm
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-      - run: npm install
-      - run: npx prettier . --check
+      - name: Instalar dependências com cache (setup-node)
+        uses: ./.github/actions/setup-node
 
-  test:
-    runs-on: ubuntu-latest
-    needs: prettier
-    steps:
-      - uses: actions/checkout@v3
-      - name: Restaurar cache npm
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-      - run: npm install
-      - run: npm run test:coverage
+      - name: Lint
+        run: npm run lint
+
+      - name: Prettier check
+        run: npx prettier . --check
+
+      - name: Testes com cobertura
+        run: npm run test:coverage
 
   coverage:
     runs-on: ubuntu-latest
-    needs: test
+    needs: quality-check
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v3
       - uses: codecov/codecov-action@v5
@@ -88,23 +60,23 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
-    needs: test
+    needs: quality-check
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v3
-      - name: Restaurar cache npm
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-      - run: npm install
-      - run: npm audit --audit-level=moderate
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Instalar dependências com cache (setup-node)
+        uses: ./.github/actions/setup-node
+
+      - name: Auditoria de dependências (npm audit)
+        run: npm audit --audit-level=moderate
 
   semgrep:
     name: semgrep/ci
     runs-on: ubuntu-latest
-    needs: test
+    needs: quality-check
     permissions:
       contents: read
     env:
@@ -120,17 +92,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: [semgrep, audit]
     if: ${{ success() }}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v3
-      - name: Restaurar cache npm
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-      - run: npm install
-      - uses: snyk/actions/node@master
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Instalar dependências com cache (setup-node)
+        uses: ./.github/actions/setup-node
+
+      - name: Verificar vulnerabilidades com Snyk
+        uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -140,6 +112,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [snyk, audit, coverage]
     if: ${{ success() }}
+    permissions:
+      contents: read
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
       S3_BUCKET_NAME: automacao-liga-crypto
@@ -261,23 +235,30 @@ jobs:
             --query "Environments[0].CNAME" \
             --output text)
 
-          if [ "$URL" == "None" ]; then
+          if [ "$URL" == "None" ] || [ -z "$URL" ]; then
             echo "Falha ao obter URL do ambiente Beanstalk"
             exit 1
           fi
 
-          FULL_URL="https://$URL"
-          echo "zap_target=$FULL_URL" >> $GITHUB_ENV
-          echo "zap_target=$FULL_URL" >> $GITHUB_OUTPUT
+          echo "zap_target=https://$URL" >> $GITHUB_ENV
+          echo "zap_target=https://$URL"  # log de debug
+          echo "zap_target=https://$URL" >> $GITHUB_STEP_SUMMARY
+          echo "zap_target=https://$URL" >> "$GITHUB_OUTPUT"
 
   zap:
     runs-on: ubuntu-latest
     needs: [deploy]
     if: ${{ success() }}
+    permissions:
+      contents: read
     env:
       ZAP_TARGET: ${{ needs.deploy.outputs.zap_target }}
       CURRENT_ENV: ${{ needs.deploy.outputs.current_env }}
     steps:
+      - name: Debug output do zap_target
+        run: |
+          echo "URL para o ZAP: $ZAP_TARGET"
+
       - name: Validar zap_target
         run: |
           if [ -z "$ZAP_TARGET" ]; then
