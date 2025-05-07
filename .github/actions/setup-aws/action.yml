@@ -1,12 +1,24 @@
-# .github/actions/setup-aws/action.yml
 name: Setup AWS Credentials
-description: Configura credenciais AWS
+description: Configura as credenciais da AWS para uso no pipeline
+
+inputs:
+  aws-access-key-id:
+    description: AWS Access Key ID
+    required: true
+  aws-secret-access-key:
+    description: AWS Secret Access Key
+    required: true
+  aws-region:
+    description: AWS Region
+    required: true
+
 runs:
   using: 'composite'
   steps:
-    - name: Configurar credenciais AWS
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+    - name: Configurar AWS CLI
+      run: |
+        echo "Configurando AWS..."
+        aws configure set aws_access_key_id ${{ inputs.aws-access-key-id }}
+        aws configure set aws_secret_access_key ${{ inputs.aws-secret-access-key }}
+        aws configure set region ${{ inputs.aws-region }}
+      shell: bash

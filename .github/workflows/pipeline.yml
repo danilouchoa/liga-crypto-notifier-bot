@@ -112,6 +112,10 @@ jobs:
 
       - name: Configurar credenciais AWS
         uses: ./.github/actions/setup-aws
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Instalar dependências (prod)
         run: npm ci --omit=dev
@@ -190,6 +194,10 @@ jobs:
     steps:
       - name: Configurar credenciais AWS
         uses: ./.github/actions/setup-aws
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Resgatar environment e URL do último deploy
         id: env-info
@@ -229,6 +237,10 @@ jobs:
     steps:
       - name: Configurar credenciais AWS
         uses: ./.github/actions/setup-aws
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Resgatar nome do último ambiente deployado
         run: |
