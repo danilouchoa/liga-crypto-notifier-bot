@@ -142,17 +142,25 @@ jobs:
     if: ${{ success() }}
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+      S3_BUCKET_NAME: automacao-liga-crypto
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       APP_NAME: automacao-liga-telegram-bot
       PLATFORM_ARN: arn:aws:elasticbeanstalk:us-east-1::platform/Node.js 20 running on 64bit Amazon Linux 2023/6.5.1
       VERSION_LABEL: ${{ github.sha }}-${{ github.run_number }}
+    outputs:
+      zap_target: ${{ steps.get-url.outputs.zap_target }}
+      previous_env: ${{ steps.load-previous-env.outputs.previous_env }}
+      current_env: ${{ steps.set-env-name.outputs.current_env }}
     steps:
       - uses: actions/checkout@v3
 
-      - name: Definir nome curto do ambiente
-        run: echo "ENV_NAME=automacao-liga-env-${GITHUB_SHA::6}" >> $GITHUB_ENV
+      - name: Definir nome do novo environment
+        id: set-env-name
+        run: |
+          ENV_NAME=automacao-liga-env-${GITHUB_SHA::6}
+          echo "ENV_NAME=$ENV_NAME" >> $GITHUB_ENV
+          echo "current_env=$ENV_NAME" >> $GITHUB_OUTPUT
 
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v2
@@ -160,6 +168,23 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Carregar nome do último environment (via S3 ou fallback)
+        id: load-previous-env
+        run: |
+          if aws s3 ls s3://${S3_BUCKET_NAME}/last-env-name.txt; then
+            echo "Carregando último environment via S3..."
+            aws s3 cp s3://${S3_BUCKET_NAME}/last-env-name.txt .
+            PREVIOUS_ENV=$(cat last-env-name.txt)
+          else
+            echo "Nenhum arquivo no S3. Buscando environment ativo pelo Beanstalk..."
+            PREVIOUS_ENV=$(aws elasticbeanstalk describe-environments \
+              --application-name "${APP_NAME}" \
+              --query "Environments[?Status=='Ready'].EnvironmentName | [0]" \
+              --output text)
+          fi
+
+          echo "previous_env=$PREVIOUS_ENV" >> $GITHUB_OUTPUT
 
       - name: Instalar dependências (prod)
         run: npm ci --omit=dev
@@ -183,7 +208,7 @@ jobs:
             --version-label ${{ env.VERSION_LABEL }} \
             --source-bundle S3Bucket=$S3_BUCKET_NAME,S3Key=automacao-${{ env.VERSION_LABEL }}.zip
 
-      - name: Criar ambiente Beanstalk se necessário
+      - name: Criar novo environment (ou ignorar se já existir)
         run: |
           if [ "$(aws elasticbeanstalk describe-environments \
             --application-name \"${APP_NAME}\" \
@@ -203,7 +228,7 @@ jobs:
             echo "Ambiente já existe."
           fi
 
-      - name: Aguardar ambiente ficar pronto
+      - name: Aguardar novo ambiente ficar pronto
         run: |
           for i in {1..20}; do
             STATUS=$(aws elasticbeanstalk describe-environments \
@@ -216,13 +241,18 @@ jobs:
             sleep 30
           done
 
-      - name: Atualizar ambiente
+      - name: Atualizar environment com nova versão
         run: |
           aws elasticbeanstalk update-environment \
             --environment-name ${ENV_NAME} \
             --version-label ${{ env.VERSION_LABEL }}
 
-      - name: Obter URL do ambiente Beanstalk
+      - name: Salvar nome do novo environment
+        run: |
+          echo "$ENV_NAME" > last-env-name.txt
+          aws s3 cp last-env-name.txt s3://${S3_BUCKET_NAME}/last-env-name.txt
+
+      - name: Obter URL do ambiente
         id: get-url
         run: |
           URL=$(aws elasticbeanstalk describe-environments \
@@ -232,23 +262,30 @@ jobs:
             --output text)
           echo "zap_target=https://$URL" >> $GITHUB_OUTPUT
 
-    outputs:
-      zap_target: ${{ steps.get-url.outputs.zap_target }}
-
   zap:
     runs-on: ubuntu-latest
-    needs: [deploy, setup]
+    needs: [deploy]
     if: ${{ success() }}
     steps:
       - name: Definir URL do ZAP target
-        id: define-target
         run: |
-          export ZAP_TARGET="http://automacao-liga-env-${{ needs.setup.outputs.short_sha }}.eba-pzvsz6dj.us-east-1.elasticbeanstalk.com"
-          echo "ZAP_TARGET=$ZAP_TARGET" >> $GITHUB_ENV
-          echo "target=$ZAP_TARGET" >> $GITHUB_OUTPUT
+          echo "ZAP_TARGET=${{ needs.deploy.outputs.zap_target }}" >> $GITHUB_ENV
 
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
         with:
-          target: ${{ steps.define-target.outputs.target }}
+          target: ${{ env.ZAP_TARGET }}
           fail_action: false
+
+      - name: Deletar environment anterior (se diferente do atual)
+        run: |
+          CURRENT_ENV="${{ needs.deploy.outputs.current_env }}"
+          PREVIOUS_ENV="${{ needs.deploy.outputs.previous_env }}"
+          echo "Atual: $CURRENT_ENV | Anterior: $PREVIOUS_ENV"
+          if [ "$PREVIOUS_ENV" != "" ] && [ "$PREVIOUS_ENV" != "$CURRENT_ENV" ]; then
+            aws elasticbeanstalk terminate-environment \
+              --environment-name "$PREVIOUS_ENV" \
+              --terminate-resources
+          else
+            echo "Nenhum environment anterior para deletar ou é o mesmo do atual."
+          fi
