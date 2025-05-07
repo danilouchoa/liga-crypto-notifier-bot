@@ -246,14 +246,22 @@ jobs:
 
       - name: Validar zap_target
         run: |
-          if [ -z "$ZAP_TARGET" ]; then
+          TARGET="${{ needs.deploy.outputs.zap_target }}"
+          echo "ZAP_TARGET detectado: $TARGET"
+          if [ -z "$TARGET" ]; then
             echo "zap_target não definido. Abortando."
             exit 1
           fi
+          echo "ZAP_TARGET=$TARGET" >> $GITHUB_ENV
 
       - name: Mostrar URL do ZAP
         run: |
           echo "Escaneando: $ZAP_TARGET"
+
+      - name: 'Debug: listar envs e outputs'
+        run: |
+          echo "Outputs do job deploy:"
+          env | sort
 
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
