@@ -240,10 +240,14 @@ jobs:
             exit 1
           fi
 
-          echo "zap_target=https://$URL" >> $GITHUB_ENV
-          echo "zap_target=https://$URL"  # log de debug
-          echo "zap_target=https://$URL" >> $GITHUB_STEP_SUMMARY
-          echo "zap_target=https://$URL" >> "$GITHUB_OUTPUT"
+          FULL_URL="https://$URL"
+
+          # Exportar corretamente para outros jobs
+          echo "zap_target=$FULL_URL" >> "$GITHUB_OUTPUT"
+
+          # Logs opcionais para debug
+          echo "zap_target=$FULL_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "zap_target=$FULL_URL"
 
   zap:
     runs-on: ubuntu-latest
