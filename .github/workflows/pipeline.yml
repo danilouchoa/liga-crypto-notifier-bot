@@ -8,6 +8,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  S3_BUCKET_NAME: automacao-liga-crypto
+  APP_NAME: automacao-liga-telegram-bot
+  PLATFORM_ARN: arn:aws:elasticbeanstalk:us-east-1::platform/Node.js 20 running on 64bit Amazon Linux 2023/6.5.1
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
 jobs:
   setup:
     name: Setup do Projeto
@@ -24,7 +31,7 @@ jobs:
         id: short_sha
         run: echo "value=${GITHUB_SHA::6}" >> $GITHUB_OUTPUT
 
-      - name: Instalar dependências com cache (setup-node)
+      - name: Instalar dependências com cache
         uses: ./.github/actions/setup-node
 
   quality-check:
@@ -37,7 +44,7 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v3
 
-      - name: Instalar dependências com cache (setup-node)
+      - name: Instalar dependências com cache
         uses: ./.github/actions/setup-node
 
       - name: Lint
@@ -94,12 +101,6 @@ jobs:
     permissions:
       contents: read
     env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      S3_BUCKET_NAME: automacao-liga-crypto
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      APP_NAME: automacao-liga-telegram-bot
-      PLATFORM_ARN: arn:aws:elasticbeanstalk:us-east-1::platform/Node.js 20 running on 64bit Amazon Linux 2023/6.5.1
       VERSION_LABEL: ${{ github.sha }}-${{ github.run_number }}
     steps:
       - uses: actions/checkout@v3
@@ -110,11 +111,7 @@ jobs:
           echo "ENV_NAME=$ENV_NAME" >> $GITHUB_ENV
 
       - name: Configurar credenciais AWS
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+        uses: ./.github/actions/setup-aws
 
       - name: Instalar dependências (prod)
         run: npm ci --omit=dev
@@ -190,15 +187,9 @@ jobs:
     if: ${{ success() }}
     permissions:
       contents: read
-    env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
     steps:
       - name: Configurar credenciais AWS
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+        uses: ./.github/actions/setup-aws
 
       - name: Resgatar environment e URL do último deploy
         id: env-info
@@ -235,15 +226,9 @@ jobs:
     if: ${{ success() }}
     permissions:
       contents: read
-    env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
     steps:
       - name: Configurar credenciais AWS
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+        uses: ./.github/actions/setup-aws
 
       - name: Resgatar nome do último ambiente deployado
         run: |

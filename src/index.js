@@ -6,10 +6,10 @@ const express = require('express');
 const app = express();
 
 // Middlewares
-const securityMiddleware = require('../middlewares/security');
 const logger = require('../middlewares/logger');
 const bodyParserMiddleware = require('../middlewares/bodyParser');
 const errorHandler = require('../middlewares/errorHandler');
+const { securityMiddleware, secure404 } = require('../middlewares/security');
 
 app.disable('x-powered-by');
 app.use(securityMiddleware());
@@ -23,8 +23,10 @@ app.use('/', routes);
 // Handler de erro global
 app.use(errorHandler);
 
-// Se for chamado diretamente via CLI (ex: node src/index.js)
-/* istanbul ignore next */
+// 404 seguro
+app.use(secure404);
+
+// CLI
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
@@ -32,5 +34,4 @@ if (require.main === module) {
   });
 }
 
-// Exporta para testes
 module.exports = app;
