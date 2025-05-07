@@ -1,0 +1,235 @@
+name: CI/CD - Liga Crypto Notifier Bot
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      short_sha: ${{ steps.short_sha.outputs.value }}
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Definir hash curto
+        id: short_sha
+        run: echo "value=${GITHUB_SHA::6}" >> $GITHUB_OUTPUT
+
+      - name: Cache dependências npm
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Instalar dependências
+        run: npm install
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - uses: actions/checkout@v3
+      - name: Restaurar cache npm
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - run: npm install
+      - run: npm run lint
+
+  prettier:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v3
+      - name: Restaurar cache npm
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - run: npm install
+      - run: npx prettier . --check
+
+  test:
+    runs-on: ubuntu-latest
+    needs: prettier
+    steps:
+      - uses: actions/checkout@v3
+      - name: Restaurar cache npm
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - run: npm install
+      - run: npm run test:coverage
+
+  coverage:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v3
+      - uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  audit:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v3
+      - name: Restaurar cache npm
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - run: npm install
+      - run: npm audit --audit-level=moderate
+
+  snyk:
+    runs-on: ubuntu-latest
+    needs: test
+    if: ${{ success() }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Restaurar cache npm
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - run: npm install
+      - uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: test
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [snyk, audit, coverage]
+    if: ${{ success() }}
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      APP_NAME: automacao-liga-telegram-bot
+      PLATFORM_ARN: arn:aws:elasticbeanstalk:us-east-1::platform/Node.js 20 running on 64bit Amazon Linux 2023/6.5.1
+      VERSION_LABEL: ${{ github.sha }}-${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Definir nome curto do ambiente
+        run: echo "ENV_NAME=automacao-liga-env-${GITHUB_SHA::6}" >> $GITHUB_ENV
+
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Instalar dependências (prod)
+        run: npm ci --omit=dev
+
+      - name: Zipar aplicação
+        run: zip -r app.zip . -x '*.git*' 'node_modules/*' '*.zip'
+
+      - name: Upload para S3
+        run: aws s3 cp app.zip s3://$S3_BUCKET_NAME/automacao-${{ env.VERSION_LABEL }}.zip
+
+      - name: Criar app Beanstalk se necessário
+        run: |
+          if [ "$(aws elasticbeanstalk describe-applications --query "Applications[?ApplicationName=='${APP_NAME}'] | length(@)")" -eq 0 ]; then
+            aws elasticbeanstalk create-application --application-name ${APP_NAME}
+          fi
+
+      - name: Criar nova versão da aplicação
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name ${APP_NAME} \
+            --version-label ${{ env.VERSION_LABEL }} \
+            --source-bundle S3Bucket=$S3_BUCKET_NAME,S3Key=automacao-${{ env.VERSION_LABEL }}.zip
+
+      - name: Criar ambiente Beanstalk se necessário
+        run: |
+          if [ "$(aws elasticbeanstalk describe-environments \
+            --application-name \"${APP_NAME}\" \
+            --query 'Environments[?EnvironmentName==`'"${ENV_NAME}"'`] | length(@)' \
+            --output text)" -eq 0 ]; then
+            aws elasticbeanstalk create-environment \
+              --application-name ${APP_NAME} \
+              --environment-name ${ENV_NAME} \
+              --platform-arn "${PLATFORM_ARN}" \
+              --version-label ${{ env.VERSION_LABEL }} \
+              --option-settings \
+                Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
+                Namespace=aws:elasticbeanstalk:application:environment,OptionName=TELEGRAM_BOT_TOKEN,Value=${{ secrets.TELEGRAM_BOT_TOKEN }} \
+                Namespace=aws:elasticbeanstalk:application:environment,OptionName=TELEGRAM_CHAT_ID,Value=${{ secrets.TELEGRAM_CHAT_ID }} \
+                Namespace=aws:elasticbeanstalk:environment:process:default,OptionName=HealthCheckPath,Value=/health
+          else
+            echo "Ambiente já existe."
+          fi
+
+      - name: Aguardar ambiente ficar pronto
+        run: |
+          for i in {1..20}; do
+            STATUS=$(aws elasticbeanstalk describe-environments \
+              --application-name "${APP_NAME}" \
+              --environment-names "${ENV_NAME}" \
+              --query "Environments[0].Status" \
+              --output text 2>/dev/null)
+            echo "Status atual: $STATUS"
+            [ "$STATUS" == "Ready" ] && break
+            sleep 30
+          done
+
+      - name: Atualizar ambiente
+        run: |
+          aws elasticbeanstalk update-environment \
+            --environment-name ${ENV_NAME} \
+            --version-label ${{ env.VERSION_LABEL }}
+
+      - name: Obter URL do ambiente Beanstalk
+        id: get-url
+        run: |
+          URL=$(aws elasticbeanstalk describe-environments \
+            --application-name "${APP_NAME}" \
+            --environment-names "${ENV_NAME}" \
+            --query "Environments[0].CNAME" \
+            --output text)
+          echo "zap_target=https://$URL" >> $GITHUB_OUTPUT
+
+    outputs:
+      zap_target: ${{ steps.get-url.outputs.zap_target }}
+
+  zap:
+    runs-on: ubuntu-latest
+    needs: [deploy, setup]
+    if: ${{ success() }}
+    steps:
+      - name: Definir URL do ZAP target
+        id: define-target
+        run: |
+          export ZAP_TARGET="http://automacao-liga-env-${{ needs.setup.outputs.short_sha }}.eba-pzvsz6dj.us-east-1.elasticbeanstalk.com"
+          echo "ZAP_TARGET=$ZAP_TARGET" >> $GITHUB_ENV
+          echo "target=$ZAP_TARGET" >> $GITHUB_OUTPUT
+
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: ${{ steps.define-target.outputs.target }}
+          fail_action: false

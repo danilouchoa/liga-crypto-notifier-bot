@@ -1,0 +1,44 @@
+# .gitignore atualizado para Elastic Beanstalk e GitHub Actions
+
+# Node
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# dotenv
+.env
+
+# Beanstalk
+.elasticbeanstalk/
+.deploy/
+deploy.zip
+
+# Logs
+logs/
+*.log
+
+# VSCode
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# GitHub workflows (se local)
+.github/*.log
+
+# ⚠️ Não ignore .ebextensions! Necessário para deploy no Beanstalk
+
+ChatGPTMemory.json
+# Ignorar relatórios de cobertura
+# Relatórios de cobertura
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependências
+node_modules/
