@@ -1,43 +1,46 @@
 docs:
-  - '**/*.md'
-  - 'README.md'
-  - 'docs/**'
+  - changed-files:
+      - any-glob-to-any-file: ['**/*.md', 'README.md', 'docs/**']
 
 tests:
-  - '**/*.spec.js'
-  - '**/*.test.js'
+  - changed-files:
+      - any-glob-to-any-file: ['**/*.spec.js', '**/*.test.js']
 
 api:
-  - 'src/routes/**'
-  - 'middlewares/**'
-  - 'src/index.js'
+  - changed-files:
+      - any-glob-to-any-file:
+          ['src/routes/**', 'middlewares/**', 'src/index.js']
 
 infra:
-  - 'scripts/**'
-  - 'generate-docs.js'
-  - '.ebextensions/**'
+  - changed-files:
+      - any-glob-to-any-file:
+          ['scripts/**', 'generate-docs.js', '.ebextensions/**']
 
 ci:
-  - '.github/workflows/**'
-  - '.github/actions/**'
-  - '.husky/**'
+  - changed-files:
+      - any-glob-to-any-file:
+          ['.github/workflows/**', '.github/actions/**', '.husky/**']
 
 security:
-  - 'middlewares/security.js'
-  - '**/applySecurityHeaders.js'
-  - '.github/workflows/zap.yml'
-  - 'SECURITY.md'
+  - changed-files:
+      - any-glob-to-any-file:
+          [
+            'middlewares/security.js',
+            '**/applySecurityHeaders.js',
+            '.github/workflows/zap.yml',
+            'SECURITY.md',
+          ]
 
 config:
-  - '.eslintrc'
-  - '.prettierrc'
-  - '.env.example'
-  - 'commitlint.config.js'
+  - changed-files:
+      - any-glob-to-any-file:
+          ['.eslintrc', '.prettierrc', '.env.example', 'commitlint.config.js']
 
 dependencies:
-  - 'package.json'
-  - 'package-lock.json'
+  - changed-files:
+      - any-glob-to-any-file: ['package.json', 'package-lock.json']
 
 bot:
-  - 'src/routes/youtube.js'
-  - 'src/routes/subscribe.js'
+  - changed-files:
+      - any-glob-to-any-file:
+          ['src/routes/youtube.js', 'src/routes/subscribe.js']
