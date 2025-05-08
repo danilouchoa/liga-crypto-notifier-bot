@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const escape = require('escape-html');
 const router = express.Router();
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -62,7 +63,7 @@ router.get('/youtube-callback', (req, res) => {
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log(`${logPrefix} Verificação bem-sucedida.`);
-    return res.status(200).type('text/plain').send(challenge);
+    return res.status(200).type('text/plain').send(escape(challenge));
   }
 
   console.warn(`${logPrefix} Token inválido.`);
