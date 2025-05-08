@@ -1,0 +1,46 @@
+docs:
+  - '**/*.md'
+  - 'README.md'
+  - 'docs/**'
+
+tests:
+  - '**/*.spec.js'
+  - '**/*.test.js'
+  - 'coverage/**'
+
+api:
+  - 'src/routes/**'
+  - 'middlewares/**'
+  - 'src/index.js'
+
+infra:
+  - 'scripts/**'
+  - 'generate-docs.js'
+  - '.ebextensions/**'
+  - 'package.json'
+  - 'package-lock.json'
+
+ci:
+  - '.github/workflows/**'
+  - '.github/actions/**'
+  - '.husky/**'
+
+security:
+  - 'middlewares/security.js'
+  - '**/applySecurityHeaders.js'
+  - '.github/workflows/zap.yml'
+  - 'SECURITY.md'
+
+config:
+  - '.eslintrc'
+  - '.prettierrc'
+  - '.env.example'
+  - 'commitlint.config.js'
+
+dependencies:
+  - 'package.json'
+  - 'package-lock.json'
+
+bot:
+  - 'src/routes/youtube.js'
+  - 'src/routes/subscribe.js'
