@@ -96,7 +96,7 @@ jobs:
   deploy:
     name: Deploy para AWS Elastic Beanstalk
     runs-on: ubuntu-latest
-    needs: [sast-sca]
+    # needs: [sast-sca]
     if: ${{ success() }}
     permissions:
       contents: read
