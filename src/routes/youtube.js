@@ -62,7 +62,7 @@ router.get('/youtube-callback', (req, res) => {
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log(`${logPrefix} Verificação bem-sucedida.`);
-    return res.status(200).send(challenge);
+    return res.status(200).type('text/plain').send(challenge);
   }
 
   console.warn(`${logPrefix} Token inválido.`);
