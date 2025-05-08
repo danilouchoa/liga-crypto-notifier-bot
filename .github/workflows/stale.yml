@@ -6,8 +6,11 @@
 name: Mark stale issues and pull requests
 
 on:
+  push:
+    branches:
+      - [main]
   schedule:
-    - cron: '0 9 * * *'
+    - cron: '0 9 * * *' # Every day at midnight UTC
 
 jobs:
   stale:
