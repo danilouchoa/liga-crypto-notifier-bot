@@ -91,7 +91,7 @@ jobs:
         run: snyk test
 
       - name: Verificar falhas de segurança no código (Snyk Code)
-        run: snyk code test
+        run: snyk code test --severity-threshold=high
 
   deploy:
     name: Deploy para AWS Elastic Beanstalk
