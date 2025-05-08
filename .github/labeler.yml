@@ -6,7 +6,6 @@ docs:
 tests:
   - '**/*.spec.js'
   - '**/*.test.js'
-  - 'coverage/**'
 
 api:
   - 'src/routes/**'
@@ -17,8 +16,6 @@ infra:
   - 'scripts/**'
   - 'generate-docs.js'
   - '.ebextensions/**'
-  - 'package.json'
-  - 'package-lock.json'
 
 ci:
   - '.github/workflows/**'
