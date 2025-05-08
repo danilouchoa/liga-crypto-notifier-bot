@@ -5,14 +5,14 @@
   "main": "src/index.js",
   "scripts": {
     "commit": "cz",
-    "start": "node src/index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "generate-docs": "node generate-docs.js"
+    "generate-docs": "node generate-docs.js",
+    "start": "npm run generate-docs && node src/index.js"
   },
   "keywords": [
     "youtube",
