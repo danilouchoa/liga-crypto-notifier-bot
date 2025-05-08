@@ -16,7 +16,7 @@ const options = {
       },
     ],
   },
-  apis: ['./src/routes/*.js'], // Ajuste conforme estrutura
+  apis: ['./src/routes/*.js'],
 };
 
 module.exports = swaggerJSDoc(options);

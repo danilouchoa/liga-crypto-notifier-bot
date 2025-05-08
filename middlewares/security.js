@@ -8,7 +8,7 @@ function securityMiddleware() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"], // Ajuste conforme uso real
+        scriptSrc: ["'self'", "'unsafe-inline'"], // Ajuste conforme seu uso
         objectSrc: ["'none'"],
         upgradeInsecureRequests: [],
       },
@@ -34,8 +34,9 @@ function securityMiddleware() {
   });
 }
 
-function secure404(req, res, next) {
-  applySecurityHeaders(res);
+// Corrige warning ESLint e aplica headers adicionais seguros
+function secure404(req, res, _next) {
+  applySecurityHeaders.setHeaders(res); // Usa função isolada
   res.status(404).send('Not found');
 }
 

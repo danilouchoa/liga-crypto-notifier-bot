@@ -1,44 +1,36 @@
-# .gitignore atualizado para Elastic Beanstalk e GitHub Actions
-
-# Node
+# Node.js
 node_modules/
-npm-debug.log
+*.log
+npm-debug.log*
 yarn-debug.log
 yarn-error.log
 
-# dotenv
+# Ambientes
 .env
 
-# Beanstalk
+# Deploy
 .elasticbeanstalk/
 .deploy/
 deploy.zip
 
-# Logs
+# AWS EB config (não ignorar!)
+# .ebextensions/ ← necessário, por isso não incluir aqui
+
+# Logs e cobertura
 logs/
-*.log
-
-# VSCode
-.vscode/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# GitHub workflows (se local)
-.github/*.log
-
-# ⚠️ Não ignore .ebextensions! Necessário para deploy no Beanstalk
-
-ChatGPTMemory.json
-# Ignorar relatórios de cobertura
-# Relatórios de cobertura
 coverage/
 .nyc_output/
 
-# Logs
-*.log
-npm-debug.log*
+# VSCode e sistema
+.vscode/
+.DS_Store
+Thumbs.db
 
-# Dependências
-node_modules/
+# GitHub workflows temporários
+.github/*.log
+
+# Arquivos locais
+ChatGPTMemory.json
+
+# Documentação gerada (não versionar)
+docs/openapi.json

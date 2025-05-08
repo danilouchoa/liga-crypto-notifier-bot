@@ -1,6 +1,6 @@
-const applySecurityHeaders = require('./applySecurityHeaders');
+const { setHeaders } = require('./applySecurityHeaders');
 
 module.exports = function rootRedirect(req, res) {
-  applySecurityHeaders(res);
+  setHeaders(res);
   res.redirect(302, '/docs');
 };

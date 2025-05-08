@@ -12,8 +12,11 @@ const logPrefix = '[YouTube Webhook]';
  * @swagger
  * /youtube-callback:
  *   get:
- *     summary: Verificação do PubSubHubbub (WebSub) pelo YouTube
- *     description: Usado pelo YouTube para confirmar a subscrição do callback.
+ *     summary: Validação do endpoint de notificação pelo YouTube (WebSub)
+ *     description: |
+ *       Esta rota é utilizada pelo YouTube como parte do protocolo PubSubHubbub (WebSub) para validar a subscrição do endpoint de callback.
+ *       Durante o processo de inscrição, o YouTube realiza uma requisição GET para este endpoint contendo parâmetros de verificação.
+ *       Caso o token de verificação esteja correto, a API responde com o valor do parâmetro `hub.challenge`, confirmando a subscrição com sucesso.
  *     tags:
  *       - YouTube
  *     parameters:
@@ -36,9 +39,17 @@ const logPrefix = '[YouTube Webhook]';
  *     responses:
  *       200:
  *         description: Retorna o valor de hub.challenge se verificação for bem-sucedida
+ *         content:
+ *           text/plain:
+ *             schema:
+ *               type: string
+ *               example: abc123
+ *       400:
+ *         description: Parâmetros inválidos
  *       403:
  *         description: Token de verificação inválido
  */
+
 router.get('/youtube-callback', (req, res) => {
   const mode = req.query['hub.mode'];
   const challenge = req.query['hub.challenge'];
@@ -63,7 +74,7 @@ router.get('/youtube-callback', (req, res) => {
  * /youtube-callback:
  *   post:
  *     summary: Recebe notificações de novo vídeo ou live do YouTube
- *     description: Usado pelo YouTube para enviar notificações XML (WebSub).
+ *     description: Usado pelo YouTube para enviar notificações via XML (formato WebSub).
  *     tags:
  *       - YouTube
  *     requestBody:
@@ -75,7 +86,9 @@ router.get('/youtube-callback', (req, res) => {
  *             example: <feed><entry><yt:videoId>abc123</yt:videoId></entry></feed>
  *     responses:
  *       200:
- *         description: Notificação recebida com sucesso
+ *         description: Notificação recebida com sucesso (ou ignorada)
+ *       400:
+ *         description: Tipo de conteúdo inválido
  */
 router.post('/youtube-callback', async (req, res) => {
   const xml = req.body;
