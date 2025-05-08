@@ -2,7 +2,7 @@
 
 Bot de notificações para o Telegram que envia alertas personalizados com base em eventos de canais do YouTube.
 
-[![CI/CD Pipeline](https://github.com/danilouchoa/liga-crypto-notifier-bot/actions/workflows/deploy.yml/badge.svg)](https://github.com/danilouchoa/liga-crypto-notifier-bot/actions/workflows/deploy.yml)
+[![CI/CD Pipeline](https://github.com/danilouchoa/liga-crypto-notifier-bot/actions/workflows/pipeline.yml/badge.svg)](https://github.com/danilouchoa/liga-crypto-notifier-bot/actions/workflows/pipeline.yml)
 [![codecov](https://codecov.io/gh/danilouchoa/liga-crypto-notifier-bot/graph/badge.svg?token=DTIU0XML9D)](https://codecov.io/gh/danilouchoa/liga-crypto-notifier-bot)
 
 ## 🚀 Tecnologias Utilizadas
