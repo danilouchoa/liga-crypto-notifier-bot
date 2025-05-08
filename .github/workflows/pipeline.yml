@@ -88,10 +88,10 @@ jobs:
         uses: ./.github/actions/setup-semgrep
 
       - name: Verificar dependências vulneráveis (Snyk SCA)
-        run: snyk test
+        run: snyk test --severity-threshold=high
 
       - name: Verificar falhas de segurança no código (Snyk Code)
-        run: snyk code test --severity-threshold=high
+        run: snyk code test
 
   deploy:
     name: Deploy para AWS Elastic Beanstalk
