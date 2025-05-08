@@ -5,6 +5,8 @@ Bot de notificações para o Telegram que envia alertas personalizados com base 
 [![CI/CD Pipeline](https://github.com/danilouchoa/liga-crypto-notifier-bot/actions/workflows/pipeline.yml/badge.svg)](https://github.com/danilouchoa/liga-crypto-notifier-bot/actions/workflows/pipeline.yml)
 [![codecov](https://codecov.io/gh/danilouchoa/liga-crypto-notifier-bot/graph/badge.svg?token=DTIU0XML9D)](https://codecov.io/gh/danilouchoa/liga-crypto-notifier-bot)
 
+---
+
 ## 🚀 Tecnologias Utilizadas
 
 - Node.js + Express
@@ -15,6 +17,9 @@ Bot de notificações para o Telegram que envia alertas personalizados com base 
 - ESLint + Prettier (qualidade de código)
 - Snyk + OWASP ZAP + Gitleaks (segurança)
 - Commitizen + Husky + Commitlint (padrões de commits)
+- Swagger (OpenAPI 3.x)
+
+---
 
 ## 📦 Instalação Local
 
@@ -28,6 +33,7 @@ Bot de notificações para o Telegram que envia alertas personalizados com base 
 ```bash
 git clone https://github.com/danilouchoa/liga-crypto-notifier-bot.git
 cd liga-crypto-notifier-bot
+
 ```
 
 ### 3. Instalar dependências

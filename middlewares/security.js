@@ -1,13 +1,14 @@
 // middlewares/security.js
 
 const helmet = require('helmet');
+const applySecurityHeaders = require('./applySecurityHeaders');
 
 function securityMiddleware() {
   return helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"], // Ajuste conforme necessidade real
+        scriptSrc: ["'self'", "'unsafe-inline'"], // Ajuste conforme uso real
         objectSrc: ["'none'"],
         upgradeInsecureRequests: [],
       },
@@ -34,13 +35,7 @@ function securityMiddleware() {
 }
 
 function secure404(req, res, next) {
-  res.setHeader('Content-Security-Policy', "default-src 'none';");
-  res.setHeader(
-    'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=()'
-  );
-  res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('Referrer-Policy', 'no-referrer');
+  applySecurityHeaders(res);
   res.status(404).send('Not found');
 }
 

@@ -9,25 +9,26 @@ const app = express();
 const logger = require('../middlewares/logger');
 const bodyParserMiddleware = require('../middlewares/bodyParser');
 const errorHandler = require('../middlewares/errorHandler');
-const noStoreCache = require('../middlewares/cacheControl');
 const { securityMiddleware, secure404 } = require('../middlewares/security');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('../docs/swagger');
+const rootRedirect = require('../middlewares/rootRedirect');
 
 app.disable('x-powered-by');
 app.use(securityMiddleware());
 app.use(logger);
 app.use(bodyParserMiddleware);
 
-// Rotas
+// Swagger UI
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get('/', rootRedirect); // redireciona para /docs com headers
+
+// Rotas da API
 const routes = require('./routes');
 app.use('/', routes);
 
 // Handler de erro global
 app.use(errorHandler);
-
-// Rota principal "/" com headers seguros e sem cache
-app.get('/', noStoreCache, (req, res) => {
-  res.status(200).send('OK');
-});
 
 // Respostas seguras para rotas comuns de crawlers
 app.get(['/robots.txt', '/sitemap.xml'], (req, res) => {
