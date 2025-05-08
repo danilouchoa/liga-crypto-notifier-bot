@@ -193,6 +193,13 @@ jobs:
       contents: read
       issues: write
 
+    env:
+      YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
+      YOUTUBE_VERIFY_TOKEN: ${{ secrets.YOUTUBE_VERIFY_TOKEN }}
+      YOUTUBE_CALLBACK_PATH: ${{ secrets.YOUTUBE_CALLBACK_PATH }}
+      INTERNAL_ENV_BASE_PREFIX: ${{ secrets.INTERNAL_ENV_BASE_PREFIX }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
     steps:
       - name: Checkout do repositório
         uses: actions/checkout@v3
@@ -207,17 +214,18 @@ jobs:
       - name: Reassinar canal do YouTube
         run: |
           SHORT_SHA=${GITHUB_SHA::6}
-          CALLBACK_URL="http://${{ secrets.INTERNAL_ENV_BASE_PREFIX }}$SHORT_SHA.eba-${{ secrets.AWS_REGION }}.elasticbeanstalk.com/${{ secrets.YOUTUBE_CALLBACK_PATH }}"
+          CALLBACK_URL="http://${INTERNAL_ENV_BASE_PREFIX}${SHORT_SHA}.eba-${AWS_REGION}.elasticbeanstalk.com/${YOUTUBE_CALLBACK_PATH}"
 
           echo "Assinando canal YouTube com callback: $CALLBACK_URL"
+          echo "Usando canal ID: $YOUTUBE_CHANNEL_ID"
 
           curl -X POST https://pubsubhubbub.appspot.com/subscribe \
             -H "Content-Type: application/x-www-form-urlencoded" \
             -d "hub.callback=$CALLBACK_URL" \
             -d "hub.mode=subscribe" \
-            -d "hub.topic=https://www.youtube.com/xml/feeds/videos.xml?channel_id=${{ secrets.YOUTUBE_CHANNEL_ID }}" \
+            -d "hub.topic=https://www.youtube.com/xml/feeds/videos.xml?channel_id=$YOUTUBE_CHANNEL_ID" \
             -d "hub.verify=async" \
-            -d "hub.verify_token=${{ secrets.YOUTUBE_VERIFY_TOKEN }}"
+            -d "hub.verify_token=$YOUTUBE_VERIFY_TOKEN"
 
       - name: Resgatar environment e URL do último deploy
         id: env-info
