@@ -21,8 +21,8 @@
     "webhook",
     "liga-crypto"
   ],
-  "author": "Danilo",
-  "license": "ISC",
+  "license": "MIT",
+  "author": "Danilo Uchoa",
   "engines": {
     "node": ">=20 <23"
   },
