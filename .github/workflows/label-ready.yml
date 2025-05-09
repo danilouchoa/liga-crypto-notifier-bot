@@ -11,6 +11,19 @@ permissions:
   issues: write
 
 jobs:
+  debug-actor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log do actor e evento
+        run: |
+          echo "Actor: ${{ github.event.workflow_run.actor }}"
+          echo "Event: ${{ github.event.workflow_run.event }}"
+          echo "Workflow: ${{ github.event.workflow_run.name }}"
+          echo "Conclusion: ${{ github.event.workflow_run.conclusion }}"
+          echo "Head Branch: ${{ github.event.workflow_run.head_branch }}"
+          echo "Base Branch: ${{ github.event.workflow_run.base_branch }}"
+          echo "Workflow Run ID: ${{ github.event.workflow_run.id }}"
+          echo "Workflow Run URL: ${{ github.event.workflow_run.html_url }}"
   add-label-if-quality-check-passed:
     if: >
       github.event.workflow_run.conclusion == 'success' &&
