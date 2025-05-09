@@ -26,8 +26,7 @@ jobs:
           echo "Workflow Run URL: ${{ github.event.workflow_run.html_url }}"
   add-label-if-quality-check-passed:
     if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.actor == 'dependabot[bot]'
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Verificar se o job "Code Quality & Testes" foi bem-sucedido
