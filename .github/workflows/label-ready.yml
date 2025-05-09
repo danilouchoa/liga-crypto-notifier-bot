@@ -20,9 +20,9 @@ jobs:
     steps:
       - name: Verificar se o job "Code Quality & Testes" foi bem-sucedido
         uses: actions/github-script@v7
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         with:
-          env:
-            HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           script: |
             const runId = ${{ github.event.workflow_run.id }};
             const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
