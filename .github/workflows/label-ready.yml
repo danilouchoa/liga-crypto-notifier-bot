@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   add-label-if-quality-check-passed:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.name == 'CI/CD - Liga Crypto Notifier Bot'
     runs-on: ubuntu-latest
     steps:
       - name: Verificar se o job "Code Quality & Testes" foi bem-sucedido
