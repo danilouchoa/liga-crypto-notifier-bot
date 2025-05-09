@@ -11,6 +11,10 @@ on:
       - 'bugfix/*'
       - 'dependabot/**'
 
+  pull_request:
+    branches:
+      - 'dependabot/**'
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
