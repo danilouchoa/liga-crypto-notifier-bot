@@ -23,35 +23,30 @@ jobs:
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         with:
           script: |
-            const runId = ${{ github.event.workflow_run.id }};
-            const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: runId
-            });
+            const runId = process.env.GITHUB_RUN_ID;
+            const maxAttempts = 10;
+            const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-            const job = jobs.jobs.find(j => j.name === 'Code Quality & Testes');
-
-            if (!job || job.conclusion !== 'success') {
-              core.setFailed('O job "Code Quality & Testes" falhou ou não foi encontrado.');
-              return;
-            }
-
-            const prList = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `dependabot/${process.env.HEAD_BRANCH}`
-            });
-
-            if (prList.data.length > 0) {
-              const prNumber = prList.data[0].number;
-              await github.rest.issues.addLabels({
+            let qualityCheckJob;
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: prNumber,
-                labels: ['ready-to-merge']
+                run_id: runId
               });
-              console.log(`Label aplicada ao PR #${prNumber}`);
-            } else {
-              console.log('Nenhum PR encontrado para essa branch.');
+
+              qualityCheckJob = jobs.jobs.find(j => j.name === 'Code Quality & Testes');
+
+              if (qualityCheckJob?.conclusion === 'success') {
+                console.log(`✅ Job 'Code Quality & Testes' finalizado com sucesso.`);
+                break;
+              }
+
+              if (attempt === maxAttempts) {
+                core.setFailed('⛔ Job "Code Quality & Testes" não concluiu com sucesso após múltiplas tentativas.');
+                return;
+              }
+
+              console.log(`⏳ Tentativa ${attempt}/10: aguardando finalização do job...`);
+              await delay(5000);
             }
