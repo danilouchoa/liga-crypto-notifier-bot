@@ -9,6 +9,7 @@ on:
       - 'hotfix/*'
       - 'release/*'
       - 'bugfix/*'
+      - 'dependabot/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
