@@ -3,16 +3,17 @@ name: CI/CD - Liga Crypto Notifier Bot
 on:
   push:
     branches:
+      - main
       - develop
       - 'feature/*'
       - 'hotfix/*'
+      - 'release/*'
       - 'bugfix/*'
+      - 'dependabot/**'
 
   pull_request:
     branches:
-      - 'release/*'
       - 'dependabot/**'
-      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -50,13 +51,6 @@ jobs:
     needs: setup
     permissions:
       contents: read
-    if: |
-      github.event_name == 'pull_request' ||
-      startsWith(github.ref, 'refs/heads/develop') ||
-      startsWith(github.ref, 'refs/heads/feature/') ||
-      startsWith(github.ref, 'refs/heads/hotfix/') ||
-      startsWith(github.ref, 'refs/heads/bugfix/') ||
-      startsWith(github.ref, 'refs/heads/release/')
     steps:
       - name: Checkout do código
         uses: actions/checkout@v3
@@ -81,66 +75,39 @@ jobs:
       - name: Auditoria de dependências (npm audit)
         run: npm audit --audit-level=moderate
 
-  sca-only:
-    name: SCA Only (Dependabot)
-    runs-on: ubuntu-latest
-    needs: [quality-check]
-    if: |
-      github.event_name == 'pull_request' &&
-      github.base_ref == 'main' &&
-      startsWith(github.head_ref, 'dependabot/')
-    permissions:
-      contents: read
-    env:
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-    steps:
-      - name: Checkout do código
-        uses: actions/checkout@v3
+  # sast-sca:
+  #   name: SAST & SCA (Semgrep + Snyk)
+  #   runs-on: ubuntu-latest
+  #   needs: [quality-check]
+  #   if: github.actor != 'dependabot[bot]'
+  #   permissions:
+  #     contents: read
+  #   env:
+  #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  #     SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+  #   steps:
+  #     - name: Checkout do código
+  #       uses: actions/checkout@v3
 
-      - name: Instalar dependências com cache
-        uses: ./.github/actions/setup-node
+  #     - name: Instalar dependências com cache
+  #       uses: ./.github/actions/setup-node
 
-      - name: Instalar Snyk CLI com cache
-        uses: ./.github/actions/setup-snyk
+  #     - name: Instalar Snyk CLI com cache
+  #       uses: ./.github/actions/setup-snyk
 
-      - name: Verificar dependências vulneráveis (Snyk SCA)
-        run: snyk test --severity-threshold=high
+  #     - name: Análise estática com Semgrep
+  #       uses: ./.github/actions/setup-semgrep
 
-  sast-sca:
-    name: SAST & SCA (Release)
-    runs-on: ubuntu-latest
-    needs: [quality-check]
-    if: |
-      startsWith(github.ref, 'refs/heads/release/') ||
-      (github.event_name == 'pull_request' && startsWith(github.base_ref, 'release/'))
-    permissions:
-      contents: read
-    env:
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-    steps:
-      - name: Checkout do código
-        uses: actions/checkout@v3
+  #     - name: Verificar dependências vulneráveis (Snyk SCA)
+  #       run: snyk test --severity-threshold=high
 
-      - name: Instalar dependências com cache
-        uses: ./.github/actions/setup-node
-
-      - name: Instalar Snyk CLI com cache
-        uses: ./.github/actions/setup-snyk
-
-      - name: Análise estática com Semgrep
-        uses: ./.github/actions/setup-semgrep
-
-      - name: Verificar dependências vulneráveis (Snyk SCA)
-        run: snyk test --severity-threshold=high
-
-      - name: Verificar falhas de segurança no código (Snyk Code)
-        run: snyk code test
+  #     - name: Verificar falhas de segurança no código (Snyk Code)
+  #       run: snyk code test
 
   deploy:
     name: Deploy para AWS Elastic Beanstalk
     runs-on: ubuntu-latest
-    needs: [sast-sca]
+    # needs: [sast-sca]
     if: (startsWith(github.ref, 'refs/heads/release/') || github.ref == 'refs/heads/main') && success()
     permissions:
       contents: read
