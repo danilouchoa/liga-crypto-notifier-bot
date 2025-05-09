@@ -9,11 +9,6 @@ on:
       - 'hotfix/*'
       - 'release/*'
       - 'bugfix/*'
-      - 'dependabot/**'
-
-  pull_request:
-    branches:
-      - 'dependabot/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
