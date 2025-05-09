@@ -22,7 +22,6 @@ jobs:
           WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
         with:
           script: |
-            // Ignora se não for branch do dependabot
             if (!process.env.HEAD_BRANCH.startsWith('dependabot/')) {
               console.log('🔁 Branch não é do dependabot, abortando.');
               return;
@@ -48,7 +47,31 @@ jobs:
               }
 
               if (attempt === maxAttempts) {
-                core.setFailed('⛔ Job "Code Quality & Testes" não concluiu com sucesso após múltiplas tentativas.');
+                console.log('⛔ Testes falharam. Fechando PR e comentando motivo.');
+
+                const { data: prList } = await github.rest.pulls.list({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  head: process.env.HEAD_BRANCH
+                });
+
+                if (prList.length > 0) {
+                  const prNumber = prList[0].number;
+                  await github.rest.pulls.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: prNumber,
+                    state: 'closed'
+                  });
+
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: prNumber,
+                    body: '❌ PR fechado automaticamente pois os testes não passaram no job `Code Quality & Testes`.'
+                  });
+                }
+
                 return;
               }
 
@@ -56,22 +79,50 @@ jobs:
               await delay(5000);
             }
 
-            // Procurar PR com base na branch HEAD
-            const prList = await github.rest.pulls.list({
+            const { data: prList } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               head: process.env.HEAD_BRANCH
             });
 
-            if (prList.data.length > 0) {
-              const prNumber = prList.data[0].number;
-              await github.rest.issues.addLabels({
+            if (prList.length === 0) {
+              console.log(`❌ Nenhum PR encontrado para a branch '${process.env.HEAD_BRANCH}'`);
+              return;
+            }
+
+            const prNumber = prList[0].number;
+
+            // 🏷️ Adiciona label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: ['ready-to-merge']
+            });
+
+            // 💬 Comenta resultado dos testes
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `✅ Os testes no job \`Code Quality & Testes\` passaram com sucesso. PR pronto para merge.`
+            });
+
+            // 📦 Verifica mudanças em package.json e comenta
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            const pkgChanges = files.filter(f => f.filename.includes('package.json'));
+            if (pkgChanges.length > 0) {
+              await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
-                labels: ['ready-to-merge']
+                body: `📦 Foram detectadas mudanças em \`${pkgChanges.map(f => f.filename).join(', ')}\`. Verifique se as dependências estão seguras.`
               });
-              console.log(`🏷️ Label 'ready-to-merge' aplicada ao PR #${prNumber}`);
-            } else {
-              console.log(`❌ Nenhum PR encontrado para a branch '${process.env.HEAD_BRANCH}'`);
             }
+
+            console.log(`🏷️ Label aplicada e comentários inseridos no PR #${prNumber}`);
