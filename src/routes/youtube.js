@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const escape = require('escape-html');
 const router = express.Router();
+const { XMLParser } = require('fast-xml-parser');
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '8162313624';
@@ -95,40 +96,47 @@ router.post('/youtube-callback', async (req, res) => {
   const xml = req.body;
 
   if (typeof xml !== 'string') {
-    console.warn(`${logPrefix} Tipo inválido: ${typeof xml}`);
+    console.warn(`${logPrefix} Tipo inválido de corpo recebido.`);
     return res.status(200).end();
   }
 
-  if (xml.includes('<entry>')) {
-    const match = xml.match(/<yt:videoId>(.*?)<\/yt:videoId>/);
-    const videoId = match?.[1];
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: '',
+  });
 
-    if (videoId) {
-      const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-      console.log(`${logPrefix} Vídeo detectado: ${videoUrl}`);
+  let parsed;
+  try {
+    parsed = parser.parse(xml);
+  } catch (err) {
+    console.error(`${logPrefix} Erro ao parsear XML:`, err.message);
+    return res.status(200).end();
+  }
 
-      try {
-        const telegramRes = await axios.post(
-          `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-          {
-            chat_id: TELEGRAM_CHAT_ID,
-            text: `Novo vídeo ou live da LigaCrypto!\n${videoUrl}`,
-          }
-        );
-        console.log(
-          `${logPrefix} Notificação enviada. msg_id=${telegramRes.data.result.message_id}`
-        );
-      } catch (err) {
-        console.error(
-          `${logPrefix} Erro ao enviar para Telegram:`,
-          err.response?.data || err.message
-        );
-      }
-    } else {
-      console.warn(`${logPrefix} XML com <entry>, mas sem <videoId>.`);
+  const videoId = parsed?.feed?.entry?.['yt:videoId'];
+  if (videoId) {
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    console.log(`${logPrefix} Vídeo detectado: ${videoUrl}`);
+
+    try {
+      const telegramRes = await axios.post(
+        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+        {
+          chat_id: TELEGRAM_CHAT_ID,
+          text: `Novo vídeo ou live da LigaCrypto!\n${videoUrl}`,
+        }
+      );
+      console.log(
+        `${logPrefix} Notificação enviada. msg_id=${telegramRes.data.result.message_id}`
+      );
+    } catch (err) {
+      console.error(
+        `${logPrefix} Erro ao enviar para Telegram:`,
+        err.response?.data || err.message
+      );
     }
   } else {
-    console.log(`${logPrefix} Sem <entry> no XML. Ignorando.`);
+    console.warn(`${logPrefix} XML recebido sem <yt:videoId>.`);
   }
 
   res.status(200).end();
