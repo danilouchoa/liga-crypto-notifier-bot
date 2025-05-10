@@ -3,17 +3,22 @@ name: CI/CD - Liga Crypto Notifier Bot
 on:
   push:
     branches:
-      - main
-      - develop
       - 'feature/*'
       - 'hotfix/*'
       - 'release/*'
       - 'bugfix/*'
       - 'dependabot/**'
-
+      - main
+      - develop
   pull_request:
     branches:
+      - 'feature/*'
+      - 'hotfix/*'
+      - 'release/*'
+      - 'bugfix/*'
       - 'dependabot/**'
+      - main
+      - develop
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
