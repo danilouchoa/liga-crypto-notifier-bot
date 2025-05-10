@@ -2,7 +2,7 @@ module.exports = {
   env: {
     node: true,
     es2021: true,
-    jest: true, // ✅ Permite globals como describe, it, expect etc.
+    jest: true, //  Permite globals como describe, it, expect etc.
   },
   extends: [
     'eslint:recommended',

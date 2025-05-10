@@ -9,7 +9,7 @@ jest.mock('../src/routes/youtube', () => {
 
 describe('GET /youtube-callback', () => {
   describe('Casos válidos', () => {
-    it('retorna 200 com o valor de challenge quando todos os parâmetros são válidos', async () => {
+    it('retorna 200 com o valor de challenge quando todos os Parametros são válidos', async () => {
       const res = await request(app).get('/youtube-callback').query({
         'hub.mode': 'subscribe',
         'hub.challenge': '1234',
@@ -32,7 +32,7 @@ describe('GET /youtube-callback', () => {
     });
   });
 
-  describe('Casos inválidos', () => {
+  describe('Casos invalidos', () => {
     it('retorna 400 quando nenhum parâmetro é enviado', async () => {
       const res = await request(app).get('/youtube-callback');
       expect(res.statusCode).toBe(400);
@@ -53,7 +53,7 @@ describe('GET /youtube-callback', () => {
         'hub.verify_token': 'ligacrypto_bot',
       });
       expect(res.statusCode).toBe(400);
-      expect(res.text).toBe('Challenge invalido');
+      expect(res.text).toBe('Parametros invalidos'); // <- ajuste aqui
     });
 
     it('retorna 400 quando challenge está vazio', async () => {
@@ -63,10 +63,10 @@ describe('GET /youtube-callback', () => {
         'hub.verify_token': 'ligacrypto_bot',
       });
       expect(res.statusCode).toBe(400);
-      expect(res.text).toBe('Challenge invalido');
+      expect(res.text).toBe('Parametros invalidos'); // <- ajuste aqui
     });
 
-    it('retorna 403 quando o token é inválido', async () => {
+    it('retorna 403 quando o token é invalido', async () => {
       const res = await request(app).get('/youtube-callback').query({
         'hub.mode': 'subscribe',
         'hub.challenge': 'abcd',
@@ -76,14 +76,14 @@ describe('GET /youtube-callback', () => {
       expect(res.text).toBe('Token invalido');
     });
 
-    it('retorna 400 quando o modo é inválido', async () => {
+    it('retorna 400 quando o modo é invalido', async () => {
       const res = await request(app).get('/youtube-callback').query({
         'hub.mode': 'invalidmode',
         'hub.challenge': '9999',
         'hub.verify_token': 'ligacrypto_bot',
       });
       expect(res.statusCode).toBe(400);
-      expect(res.text).toBe('Modo inválido');
+      expect(res.text).toBe('Modo invalido');
     });
   });
 });

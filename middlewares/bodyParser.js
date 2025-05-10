@@ -2,5 +2,5 @@ const bodyParser = require('body-parser');
 
 module.exports = [
   bodyParser.json(),
-  bodyParser.text({ type: 'application/atom+xml' }), // Para notificações do YouTube
+  bodyParser.text({ type: 'application/xml' }), // Para notificações do YouTube
 ];

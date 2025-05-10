@@ -23,7 +23,7 @@ jobs:
         with:
           script: |
             if (!process.env.HEAD_BRANCH.startsWith('dependabot/')) {
-              console.log('🔁 Branch não é do dependabot, abortando.');
+              console.log('Branch não é do dependabot, abortando.');
               return;
             }
 
@@ -42,12 +42,12 @@ jobs:
               qualityCheckJob = jobs.jobs.find(j => j.name === 'Code Quality & Testes');
 
               if (qualityCheckJob?.conclusion === 'success') {
-                console.log(`✅ Job 'Code Quality & Testes' finalizado com sucesso.`);
+                console.log(` Job 'Code Quality & Testes' finalizado com sucesso.`);
                 break;
               }
 
               if (attempt === maxAttempts) {
-                console.log('⛔ Testes falharam. Fechando PR e comentando motivo.');
+                console.log('Testes falharam. Fechando PR e comentando motivo.');
 
                 const { data: prList } = await github.rest.pulls.list({
                   owner: context.repo.owner,
@@ -68,14 +68,14 @@ jobs:
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: prNumber,
-                    body: '❌ PR fechado automaticamente pois os testes não passaram no job `Code Quality & Testes`.'
+                    body: 'PR fechado automaticamente pois os testes não passaram no job `Code Quality & Testes`.'
                   });
                 }
 
                 return;
               }
 
-              console.log(`⏳ Tentativa ${attempt}/10: aguardando finalização do job...`);
+              console.log(`Tentativa ${attempt}/10: aguardando finalização do job...`);
               await delay(5000);
             }
 
@@ -86,13 +86,13 @@ jobs:
             });
 
             if (prList.length === 0) {
-              console.log(`❌ Nenhum PR encontrado para a branch '${process.env.HEAD_BRANCH}'`);
+              console.log(`Nenhum PR encontrado para a branch '${process.env.HEAD_BRANCH}'`);
               return;
             }
 
             const prNumber = prList[0].number;
 
-            // 🏷️ Adiciona label
+            //Adiciona label
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -100,15 +100,15 @@ jobs:
               labels: ['ready-to-merge']
             });
 
-            // 💬 Comenta resultado dos testes
+            //Comenta resultado dos testes
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
-              body: `✅ Os testes no job \`Code Quality & Testes\` passaram com sucesso. PR pronto para merge.`
+              body: ` Os testes no job \`Code Quality & Testes\` passaram com sucesso. PR pronto para merge.`
             });
 
-            // 📦 Verifica mudanças em package.json e comenta
+            //Verifica mudanças em package.json e comenta
             const { data: files } = await github.rest.pulls.listFiles({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -121,8 +121,8 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
-                body: `📦 Foram detectadas mudanças em \`${pkgChanges.map(f => f.filename).join(', ')}\`. Verifique se as dependências estão seguras.`
+                body: `Foram detectadas mudanças em \`${pkgChanges.map(f => f.filename).join(', ')}\`. Verifique se as dependências estão seguras.`
               });
             }
 
-            console.log(`🏷️ Label aplicada e comentários inseridos no PR #${prNumber}`);
+            console.log(`Label aplicada e comentários inseridos no PR #${prNumber}`);

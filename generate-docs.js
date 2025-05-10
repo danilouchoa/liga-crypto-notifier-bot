@@ -7,4 +7,4 @@ fs.writeFileSync(
   path.join(__dirname, 'docs', 'openapi.json'),
   JSON.stringify(swaggerSpec, null, 2)
 );
-console.log('✅ Documento OpenAPI gerado com sucesso em docs/openapi.json');
+console.log(' Documento OpenAPI gerado com sucesso em docs/openapi.json');

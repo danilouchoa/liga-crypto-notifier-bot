@@ -11,12 +11,12 @@ const bodyParserMiddleware = require('../middlewares/bodyParser');
 const errorHandler = require('../middlewares/errorHandler');
 const { securityMiddleware, secure404 } = require('../middlewares/security');
 const rootRedirect = require('../middlewares/rootRedirect');
-const docsHandler = require('../middlewares/docsHandler'); // <- NOVO
+const docsHandler = require('../middlewares/docsHandler');
 
 app.disable('x-powered-by');
 app.use(securityMiddleware());
 app.use(logger);
-app.use(bodyParserMiddleware);
+bodyParserMiddleware.forEach((mw) => app.use(mw));
 
 // Redirecionamento da raiz para a doc
 app.get('/', rootRedirect);
@@ -32,23 +32,8 @@ app.use('/', routes);
 app.use(errorHandler);
 
 // Respostas seguras para crawlers e bots
-app.get(['/robots.txt', '/sitemap.xml'], (req, res) => {
-  res.setHeader('Content-Security-Policy', "default-src 'none';");
-  res.setHeader(
-    'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=()'
-  );
-  res.setHeader(
-    'Cache-Control',
-    'no-store, no-cache, must-revalidate, proxy-revalidate'
-  );
-  res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  res.status(404).send('Not found');
-});
+const handleBotsRequest = require('../middlewares/robotsHandler');
+app.get(['/robots.txt', '/sitemap.xml'], handleBotsRequest);
 
 // 404 para demais rotas
 app.use(secure404);
@@ -58,8 +43,9 @@ if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(
-      `Servidor ativo na porta ${PORT} — Documentação em http://localhost:${PORT}/docs`
+      `Servidor ativo na porta ${PORT} — Ambiente: ${process.env.NODE_ENV || 'development'}`
     );
+    console.log(`Documentação disponível em http://localhost:${PORT}/docs`);
   });
 }
 
