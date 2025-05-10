@@ -64,6 +64,9 @@
     ]
   },
   "config": {
+    "setupFiles": [
+      "./jest.setup.js"
+    ],
     "commitizen": {
       "path": "cz-conventional-changelog"
     }

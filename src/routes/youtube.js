@@ -1,122 +1,129 @@
 const express = require('express');
 const axios = require('axios');
 const escape = require('escape-html');
+const crypto = require('crypto');
+const { XMLParser, XMLValidator } = require('fast-xml-parser');
+const {
+  setHeaders: setSecurityHeaders,
+} = require('../../middlewares/applySecurityHeaders');
+
 const router = express.Router();
-const { XMLParser } = require('fast-xml-parser');
-
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '8162313624';
 const VERIFY_TOKEN = 'ligacrypto_bot';
-
 const logPrefix = '[YouTube Webhook]';
 
-/**
- * @swagger
- * /youtube-callback:
- *   get:
- *     summary: Validação do endpoint de notificação pelo YouTube (WebSub)
- *     description: |
- *       Esta rota é utilizada pelo YouTube como parte do protocolo PubSubHubbub (WebSub) para validar a subscrição do endpoint de callback.
- *       Durante o processo de inscrição, o YouTube realiza uma requisição GET para este endpoint contendo parâmetros de verificação.
- *       Caso o token de verificação esteja correto, a API responde com o valor do parâmetro `hub.challenge`, confirmando a subscrição com sucesso.
- *     tags:
- *       - YouTube
- *     parameters:
- *       - in: query
- *         name: hub.mode
- *         schema:
- *           type: string
- *         required: true
- *         example: subscribe
- *       - in: query
- *         name: hub.challenge
- *         schema:
- *           type: string
- *         required: true
- *       - in: query
- *         name: hub.verify_token
- *         schema:
- *           type: string
- *         required: true
- *     responses:
- *       200:
- *         description: Retorna o valor de hub.challenge se verificação for bem-sucedida
- *         content:
- *           text/plain:
- *             schema:
- *               type: string
- *               example: abc123
- *       400:
- *         description: Parâmetros inválidos
- *       403:
- *         description: Token de verificação inválido
- */
+// Funções auxiliares
+const safeEscape = (value) => escape(value || '');
 
-router.get('/youtube-callback', (req, res) => {
-  const mode = req.query['hub.mode'];
-  const challenge = req.query['hub.challenge'];
-  const token = req.query['hub.verify_token'];
+const logWithTimestamp = (message) => {
+  console.log(`[${new Date().toISOString()}] ${logPrefix} ${message}`);
+};
 
-  if (!mode || !challenge || !token) {
-    console.warn(`${logPrefix} Parâmetros inválidos.`);
-    return res.status(400).send('Parâmetros inválidos');
-  }
+const logErrorWithTimestamp = (message) => {
+  console.error(`[${new Date().toISOString()}] ${logPrefix} ${message}`);
+};
 
-  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-    console.log(`${logPrefix} Verificação bem-sucedida.`);
-    return res.status(200).type('text/plain').send(escape(challenge));
-  }
-
-  console.warn(`${logPrefix} Token inválido.`);
-  return res.status(403).send('Forbidden');
+const parser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '',
+  ignoreNameSpace: false, // <- importante
 });
 
-/**
- * @swagger
- * /youtube-callback:
- *   post:
- *     summary: Recebe notificações de novo vídeo ou live do YouTube
- *     description: Usado pelo YouTube para enviar notificações via XML (formato WebSub).
- *     tags:
- *       - YouTube
- *     requestBody:
- *       required: true
- *       content:
- *         application/xml:
- *           schema:
- *             type: string
- *             example: <feed><entry><yt:videoId>abc123</yt:videoId></entry></feed>
- *     responses:
- *       200:
- *         description: Notificação recebida com sucesso (ou ignorada)
- *       400:
- *         description: Tipo de conteúdo inválido
- */
-router.post('/youtube-callback', async (req, res) => {
-  const xml = req.body;
+const getTelegramConfig = () => {
+  const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '8162313624';
 
-  if (typeof xml !== 'string') {
-    console.warn(`${logPrefix} Tipo inválido de corpo recebido.`);
-    return res.status(200).end();
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    throw new Error(
+      'As variáveis de ambiente TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID não estão definidas.'
+    );
+  }
+  return { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID };
+};
+
+// GET /youtube-callback
+router.get('/youtube-callback', (req, res) => {
+  const mode = safeEscape(req.query['hub.mode']);
+  const challenge = safeEscape(req.query['hub.challenge']);
+  const token = safeEscape(req.query['hub.verify_token']);
+
+  if (!mode || !token || !challenge || challenge.trim() === '') {
+    logErrorWithTimestamp(
+      `Requisição inválida: mode=${mode}, challenge=${challenge}, token=${token}`
+    );
+    return res.status(400).send('Parametros invalidos');
   }
 
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: '',
-  });
+  if (mode === 'subscribe') {
+    const tokenBuffer = Buffer.from(token);
+    const verifyTokenBuffer = Buffer.from(VERIFY_TOKEN);
 
+    if (
+      tokenBuffer.length === verifyTokenBuffer.length &&
+      crypto.timingSafeEqual(tokenBuffer, verifyTokenBuffer)
+    ) {
+      logWithTimestamp(
+        `Verificação bem-sucedida: mode=${mode}, challenge=${challenge}`
+      );
+      return res.status(200).type('text/plain').send(challenge);
+    } else {
+      logErrorWithTimestamp(
+        `Token inválido fornecido. mode=${mode}, token=${token}`
+      );
+      return res.status(403).send('Token invalido');
+    }
+  }
+
+  if (mode === 'unsubscribe') {
+    logWithTimestamp('Unsubscribe realizado com sucesso');
+    return res.status(200).send('Unsubscribed');
+  }
+
+  logErrorWithTimestamp(`Modo inválido fornecido: ${mode}`);
+  return res.status(400).send('Modo invalido');
+});
+
+// POST /youtube-callback
+router.post('/youtube-callback', async (req, res) => {
+  const xml = req.body;
   let parsed;
+
+  if (!xml || xml.trim() === '') {
+    logErrorWithTimestamp('Corpo da requisição vazio.');
+    return res.status(400).send('Formato invalido');
+  }
+
+  const validationResult = XMLValidator.validate(xml);
+  if (validationResult !== true) {
+    logErrorWithTimestamp(`Erro ao parsear XML: ${validationResult.err.msg}`);
+    return res.status(400).send('Erro ao parsear XML');
+  }
+
   try {
     parsed = parser.parse(xml);
   } catch (err) {
-    console.error(`${logPrefix} Erro ao parsear XML:`, err.message);
+    logErrorWithTimestamp(`Erro ao parsear XML: ${err.message}`);
+    return res.status(400).send('Erro ao parsear XML');
+  }
+
+  const rawEntries = parsed?.feed?.entry;
+  if (!rawEntries) {
+    logWithTimestamp('XML recebido sem entry. Nenhuma ação necessária.');
+    setSecurityHeaders(res);
     return res.status(200).end();
   }
 
-  const videoId = parsed?.feed?.entry?.['yt:videoId'];
-  if (videoId) {
+  const entries = Array.isArray(rawEntries) ? rawEntries : [rawEntries];
+  const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = getTelegramConfig();
+
+  for (const entry of entries) {
+    const videoId = entry?.['yt:videoId'];
+    if (typeof videoId !== 'string' || !videoId.trim()) {
+      logWithTimestamp('Entry sem <yt:videoId>. Ignorando.');
+      continue;
+    }
+
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    console.log(`${logPrefix} Vídeo detectado: ${videoUrl}`);
+    logWithTimestamp(`Vídeo detectado: ${videoUrl}`);
 
     try {
       const telegramRes = await axios.post(
@@ -124,22 +131,27 @@ router.post('/youtube-callback', async (req, res) => {
         {
           chat_id: TELEGRAM_CHAT_ID,
           text: `Novo vídeo ou live da LigaCrypto!\n${videoUrl}`,
-        }
+        },
+        { timeout: 5000 }
       );
-      console.log(
-        `${logPrefix} Notificação enviada. msg_id=${telegramRes.data.result.message_id}`
+
+      logWithTimestamp(
+        `Notificação enviada. msg_id=${safeEscape(telegramRes.data.result.message_id)}`
       );
     } catch (err) {
-      console.error(
-        `${logPrefix} Erro ao enviar para Telegram:`,
-        err.response?.data || err.message
-      );
+      logErrorWithTimestamp(`Erro ao enviar para Telegram: ${err.message}`);
+      if (err.response) {
+        logErrorWithTimestamp(
+          `Detalhes do erro: status=${err.response.status}, data=${JSON.stringify(err.response.data)}`
+        );
+      }
+      logErrorWithTimestamp('Erro ao enviar para Telegram. Continuando fluxo.');
+      continue;
     }
-  } else {
-    console.warn(`${logPrefix} XML recebido sem <yt:videoId>.`);
   }
 
-  res.status(200).end();
+  setSecurityHeaders(res);
+  return res.status(200).end();
 });
 
 module.exports = router;
