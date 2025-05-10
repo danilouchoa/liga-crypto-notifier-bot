@@ -126,6 +126,16 @@ git checkout -b feat/nome-da-feature
 - `hotfix/*`: correções urgentes
 - `release/*`: preparação para deploy
 
+## 🤖 Automação de Pull Requests
+
+Pull Requests criados a partir das branches:
+
+- `hotfix/*`, `release/*`, `bugfix/*`, `dependabot/*`
+
+Recebem automaticamente o label `ready-to-merge` após sucesso no job `Code Quality & Testes`.
+
+Em caso de falha, o PR está pronto para merge utilizando Squash e comentado via GitHub Actions.
+
 ### 🛡️ Segurança
 
 Nunca exponha segredos no código!
