@@ -25,7 +25,7 @@ Esses headers são aplicados por meio dos seguintes middlewares:
 | `applySecurityHeaders()` | Middleware global para todos os endpoints padrão               |
 | `secure404()`            | Aplica headers seguros em rotas inexistentes                   |
 | `rootRedirect()`         | Redireciona `/` para `/docs` com proteção                      |
-| `crawlerHeaders()`       | Aplica headers específicos para `/robots.txt` e `/sitemap.xml` |
+| `robotsHandler()`        | Aplica headers específicos para `/robots.txt` e `/sitemap.xml` |
 
 ---
 
