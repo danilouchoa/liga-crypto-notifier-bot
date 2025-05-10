@@ -11,13 +11,10 @@ const router = express.Router();
 const VERIFY_TOKEN = 'ligacrypto_bot';
 const logPrefix = '[YouTube Webhook]';
 
-// Funções auxiliares
 const safeEscape = (value) => escape(value || '');
-
 const logWithTimestamp = (message) => {
   console.log(`[${new Date().toISOString()}] ${logPrefix} ${message}`);
 };
-
 const logErrorWithTimestamp = (message) => {
   console.error(`[${new Date().toISOString()}] ${logPrefix} ${message}`);
 };
@@ -25,7 +22,7 @@ const logErrorWithTimestamp = (message) => {
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '',
-  ignoreNameSpace: false, // <- importante
+  ignoreNameSpace: false,
 });
 
 const getTelegramConfig = () => {
@@ -40,7 +37,43 @@ const getTelegramConfig = () => {
   return { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID };
 };
 
-// GET /youtube-callback
+/**
+ * @openapi
+ * /youtube-callback:
+ *   get:
+ *     summary: Valida o endpoint de callback do YouTube (WebSub)
+ *     description: Usado pelo YouTube para confirmar a assinatura via PubSubHubbub.
+ *     tags:
+ *       - YouTube
+ *     parameters:
+ *       - in: query
+ *         name: hub.mode
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: subscribe
+ *       - in: query
+ *         name: hub.challenge
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: hub.verify_token
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Verificação bem-sucedida
+ *         content:
+ *           text/plain:
+ *             schema:
+ *               type: string
+ *       400:
+ *         description: Parâmetros inválidos
+ *       403:
+ *         description: Token de verificação inválido
+ */
 router.get('/youtube-callback', (req, res) => {
   const mode = safeEscape(req.query['hub.mode']);
   const challenge = safeEscape(req.query['hub.challenge']);
@@ -82,7 +115,32 @@ router.get('/youtube-callback', (req, res) => {
   return res.status(400).send('Modo invalido');
 });
 
-// POST /youtube-callback
+/**
+ * @openapi
+ * /youtube-callback:
+ *   post:
+ *     summary: Recebe notificações de vídeo do YouTube (WebSub)
+ *     description: Recebe notificações via XML com novos vídeos publicados no canal.
+ *     tags:
+ *       - YouTube
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/xml:
+ *           schema:
+ *             type: string
+ *             example: |
+ *               <feed xmlns:yt="http://www.youtube.com/xml/schemas/2015">
+ *                 <entry>
+ *                   <yt:videoId>abc123</yt:videoId>
+ *                 </entry>
+ *               </feed>
+ *     responses:
+ *       200:
+ *         description: Notificação recebida com sucesso ou ignorada
+ *       400:
+ *         description: Erro no corpo XML
+ */
 router.post('/youtube-callback', async (req, res) => {
   const xml = req.body;
   let parsed;

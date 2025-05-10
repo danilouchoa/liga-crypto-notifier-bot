@@ -22,10 +22,14 @@ jobs:
           WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
         with:
           script: |
-            if (!process.env.HEAD_BRANCH.startsWith('dependabot/')) {
-              console.log('Branch não é do dependabot, abortando.');
+            const allowedBranches = ['dependabot/', 'hotfix/', 'release/', 'bugfix/'];
+            const isAllowed = allowedBranches.some(prefix => process.env.HEAD_BRANCH.startsWith(prefix));
+
+            if (!isAllowed) {
+              console.log(`Branch '${process.env.HEAD_BRANCH}' não está na lista de branches permitidas. Abortando.`);
               return;
             }
+
 
             const runId = process.env.WORKFLOW_RUN_ID;
             const maxAttempts = 10;
